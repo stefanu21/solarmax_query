@@ -25,6 +25,8 @@ class MyPVLogger(SolarMax):
             super().__init__(host, port, 0)
         except Exception as e:
             print(f' {e}')
+            data="N:0.0:0.0:0:0"
+            rrdtool.update(self.db_name, data)
             if not self.dry_run:
                 exit(1)
 
