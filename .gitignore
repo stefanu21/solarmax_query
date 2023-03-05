@@ -1,6 +1,7 @@
 pyvenv.cfg
 lib64
 bin/*
+*.png
 # Byte-compiled / optimized / DLL files
 __pycache__/
 *.py[cod]
