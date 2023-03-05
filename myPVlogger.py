@@ -49,7 +49,7 @@ class MyPVLogger(SolarMax):
 
 def main():
     s = MyPVLogger('192.168.40.210', 12345,
-                   "/home/stefan/backup/playground/solarmax_query/data.rrd")
+                   "/var/www/solar.rrd")
     if s.dry_run:
         s.push_dummy()
     else:
