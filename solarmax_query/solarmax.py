@@ -140,6 +140,7 @@ class SolarMax():
             20020: 'SolarMax 3000S',
             20030: 'SolarMax 4200S',
             20040: 'SolarMax 6000S',
+            20213: 'SolarMax 15MT T2',
         }
         data = self.type()
         if data == None: return None
