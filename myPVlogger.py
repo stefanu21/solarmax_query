@@ -37,6 +37,21 @@ class MyTasmotaConsumers():
                 pass
         return c
 
+    def set_energy_today(self, device, val):
+        return self.get_req(self.devices.get(device), "EnergyToday1%20" + str(val))
+    
+    def set_energy_yesterday(self, device, val):
+        return self.get_req(self.devices.get(device), "EnergyYesterday1%20" + str(val))
+
+    def set_energy_total(self, device, val):
+        return self.get_req(self.devices.get(device), "EnergyTotal1%20" + str(val))
+
+    def turn_on(self, device=None):
+        return self.get_req(self.devices.get(device), "Power%20On")
+
+    def turn_off(self, device=None):
+        return self.get_req(self.devices.get(device), "Power%20Off")
+
 class MyS0Consumers():
     def __init__(self, devices:dict):
         self.devices = devices
