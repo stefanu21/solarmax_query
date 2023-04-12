@@ -110,14 +110,32 @@ class MyDB():
         with self._client.write_api(write_options=SYNCHRONOUS) as w:
             w.write(self._bucket, self._org, p)
 
-    def query_data(self, query):
-        q_api = self._client.query_api()
-        tables = q_api.query(self._org, query=query)
-        res = []
-        for t in tables:
-            for r in table.records:
-                res.append(r.get_value(), r.get_field())
-        return res
+    def query_data(self, bucket, device, field, start, last=False):
+        try:
+            q_api = self._client.query_api()
+
+            q = 'from(bucket:"' + bucket + '") \
+                    |> range(start: ' + start + ') \
+                    |> filter(fn: (r) => r._measurement == "' + device + '" and r._field == "' + field + '")'
+            
+            if last:
+                q = q + '|> last()'
+
+            tables = q_api.query(org=self._org, query=q)
+            item = {}
+            item['field'] = field
+            item['values'] = []
+
+            if last:
+                item['value'] = tables[0].records[0].get_value()
+                return item
+
+            for r in tables[0].records:
+                item['values'].append((r.get_value(), r.get_time()))
+            return item
+        except Exception as e:
+            print (e)
+            return None
 
 def main():
     try:
