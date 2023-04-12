@@ -157,10 +157,17 @@ def main():
             "boiler": "192.168.40.94",
         }
         c = MyTasmotaConsumers(tasmota)
+        
         db = MyDB('token_foo', '', 'consumer')
-        for c in c.get_consumption():
-            db.write_data(c, keys=['Total', 'Yesterday', 'Today', 'Power'])
-            print(c)#{'Total': (25.499, 'kWh'), 'Yesterday': (4.247, 'kWh'), 'Today': (0.908, 'kWh'), 'Power': (568, 'W'), 'created': 1680944423, 'name': 'washer'}
+       
+        for item in c.get_consumption():
+            last_tot = db.query_data(db._bucket, item['name'], 'Total', '-10d', True)
+            if last_tot and last_tot['value'] > item['Total']:
+                print(f"jump detected {item['name']} {last_tot['value']} > {item['Total']}" )
+                c.set_energy_today(item['name'], 0)
+                c.set_energy_yesterday(item['name'], 0)
+                c.set_energy_total(item['name'], last_tot['value'] * 1000)
+            db.write_data(item, keys=['Total', 'Yesterday', 'Today', 'Power'])
     except Exception as e:
         print(e)
         
