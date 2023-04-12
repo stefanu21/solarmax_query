@@ -12,6 +12,13 @@ class MyTasmotaConsumers():
         self.devices = devices
         self.status_values = [ ["Total", "kWh"], ["Yesterday", "kWh"], ["Today", "kWh"], ["Power", "W"]]
 
+    def get_req(self, ip, param):
+        try:
+            return requests.get("http://" + ip + "/cm?cmnd=" + param).json()
+        except Exception as e:
+            print(e)
+            raise e
+
     def get_consumption(self, device=None):
         c = []
         for k,v in self.devices.items():
@@ -19,7 +26,7 @@ class MyTasmotaConsumers():
                 if device and device != k:
                     continue
                 d = {}
-                r = requests.get("http://" + v + "/cm?cmnd=STATUS+10").json()
+                r = self.get_req(v, "STATUS+10")
                 for i in self.status_values:
                     d[i[0]]= r["StatusSNS"]["ENERGY"][i[0]]
                 
