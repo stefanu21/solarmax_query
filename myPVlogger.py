@@ -21,11 +21,7 @@ class MyTasmotaConsumers():
         self.status_values = [ ["Total", "kWh"], ["Yesterday", "kWh"], ["Today", "kWh"], ["Power", "W"]]
 
     def get_req(self, ip, param):
-        try:
-            return requests.get("http://" + ip + "/cm?cmnd=" + param).json()
-        except Exception as e:
-            print(e)
-            raise e
+        return requests.get("http://" + ip + "/cm?cmnd=" + param).json()
 
     def get_consumption(self, device=None):
         c = []
