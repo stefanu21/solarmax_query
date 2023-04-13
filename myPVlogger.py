@@ -6,6 +6,14 @@ from random import *
 import requests
 from influxdb_client import InfluxDBClient, Point, WritePrecision
 from influxdb_client.client.write_api import SYNCHRONOUS
+import logging
+from systemd.journal import JournalHandler
+
+logg = logging.getLogger("mySolarLogger")
+journal_handler = JournalHandler()
+journal_handler.setFormatter(logging.Formatter("[%(levelname)s]: %(message)s")) 
+logg.addHandler(journal_handler)
+logg.setLevel(logging.DEBUG)
 
 class MyTasmotaConsumers():
     def __init__(self, devices:dict):
@@ -33,8 +41,9 @@ class MyTasmotaConsumers():
                 d['created'] = calendar.timegm(time.gmtime())
                 d['name'] = k
                 c.append(d)
-            except:
-                pass
+                logg.info(d)
+            except Exception as e:
+                logg.exception("Error %s", e)
         return c
 
     def set_energy_today(self, device, val):
@@ -69,10 +78,11 @@ class MyS0Consumers():
 
                 for i in self.status_values:
                     d[i[0]]= r["StatusSNS"]["ENERGY"][i[0]],i[1]
-            except:
-                pass
-            
             status[k]=d
+            except Exception as e:
+                logg.exception("Error %s", e)
+
+        status[k]=d    
 
         return status
 
@@ -134,20 +144,20 @@ class MyDB():
                 item['values'].append((r.get_value(), r.get_time()))
             return item
         except Exception as e:
-            print (e)
+            logg.exception("Error %s", e)
             return None
 
 def main():
     try:
         s = MyProducers('192.168.40.210', 12345,
                        "/var/www/solar_new.rrd", dry_run=True)
-        print(s.get_production());  #{'SolarMax 15MT T2': {'today': (43.9, 'kWh'), 'month': (63, 'kWh'), 'year': (2494, 'kWh')}}
+        logg.info(s.get_production())  #{'SolarMax 15MT T2': {'today': (43.9, 'kWh'), 'month': (63, 'kWh'), 'year': (2494, 'kWh')}}
 
         db = MyDB('token_foo', '', 'solar')
         db.write_data(s.get_production())
     
     except Exception as e:
-        print(e)
+        logg.exception("Error %s", e)
 
     try:
         tasmota = {
@@ -163,13 +173,14 @@ def main():
         for item in c.get_consumption():
             last_tot = db.query_data(db._bucket, item['name'], 'Total', '-10d', True)
             if last_tot and last_tot['value'] > item['Total']:
-                print(f"jump detected {item['name']} {last_tot['value']} > {item['Total']}" )
+                logg.warn(f"jump detected {item['name']} {last_tot['value']} > {item['Total']}" )
                 c.set_energy_today(item['name'], 0)
                 c.set_energy_yesterday(item['name'], 0)
                 c.set_energy_total(item['name'], last_tot['value'] * 1000)
             db.write_data(item, keys=['Total', 'Yesterday', 'Today', 'Power'])
     except Exception as e:
-        print(e)
+        logg.exception("Error %s", e)
+        
         
     S0 = { "washer": {"Host" : "192.168.40.238", "Pins": ["13","14"]}, }
     #TODO add ESP32 SO consumers
