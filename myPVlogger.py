@@ -74,7 +74,6 @@ class MyS0Consumers():
 
                 for i in self.status_values:
                     d[i[0]]= r["StatusSNS"]["ENERGY"][i[0]],i[1]
-            status[k]=d
             except Exception as e:
                 logg.exception("Error %s", e)
 
