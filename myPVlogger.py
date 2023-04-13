@@ -8,6 +8,10 @@ from influxdb_client import InfluxDBClient, Point, WritePrecision
 from influxdb_client.client.write_api import SYNCHRONOUS
 import logging
 from systemd.journal import JournalHandler
+from datetime import timedelta
+import re
+
+CRONE_INTERVAL=60
 
 logg = logging.getLogger("mySolarLogger")
 journal_handler = JournalHandler()
@@ -22,6 +26,18 @@ class MyTasmotaConsumers():
 
     def get_req(self, ip, param):
         return requests.get("http://" + ip + "/cm?cmnd=" + param).json()
+
+    def get_uptime(self, device):
+        uptime_re = re.compile(r'^(\d+)T(\d+):(\d+):(\d+)$')
+        r = self.get_req(self.devices.get(device), "STATE")['Uptime']
+        m = uptime_re.match(r)
+        if m:
+            return timedelta(
+                    days=int(m.group(1)),
+                    hours=int(m.group(2)),
+                    minutes=int(m.group(3)),
+                    seconds=int(m.group(4))).total_seconds()
+        return -1
 
     def get_consumption(self, device=None):
         c = []
@@ -164,7 +180,20 @@ def main():
         c = MyTasmotaConsumers(tasmota)
         
         db = MyDB('token_foo', '', 'consumer')
-       
+
+        for k,v in c.devices.items():
+            try:
+                uptime_sec=c.get_uptime(k)
+                logg.info("Uptime: %s --> %d sec", k, c.get_uptime(k))
+                if uptime_sec >= 0 and uptime_sec < CRONE_INTERVAL:
+                    last_tot = db.query_data(db._bucket, k, 'Total', '-10d', True)
+                    logg.warn("%s - restart detected set last captured db value %d wh", k, last_tot['value'] * 1000)
+                    c.set_energy_today(k, 0)
+                    c.set_energy_yesterday(k, 0)
+                    c.set_energy_total(k, last_tot['value'] * 1000)
+            except:
+                pass 
+
         for item in c.get_consumption():
             last_tot = db.query_data(db._bucket, item['name'], 'Total', '-10d', True)
             if last_tot:
