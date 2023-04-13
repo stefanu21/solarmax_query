@@ -167,11 +167,15 @@ def main():
        
         for item in c.get_consumption():
             last_tot = db.query_data(db._bucket, item['name'], 'Total', '-10d', True)
-            if last_tot and last_tot['value'] > item['Total']:
-                logg.warn(f"jump detected {item['name']} {last_tot['value']} > {item['Total']}" )
-                c.set_energy_today(item['name'], 0)
-                c.set_energy_yesterday(item['name'], 0)
-                c.set_energy_total(item['name'], last_tot['value'] * 1000)
+            if last_tot:
+                delta = abs(last_tot['value'] - item['Total'])
+                if delta > 100:
+                    logg.critical("jump detected %s %d Wh", item['name'], delta )
+                    item['Total'] = last_tot['value']
+                    c.set_energy_today(item['name'], 0)
+                    c.set_energy_yesterday(item['name'], 0)
+                    c.set_energy_total(item['name'], last_tot['value'] * 1000)
+
             db.write_data(item, keys=['Total', 'Yesterday', 'Today', 'Power'])
     except Exception as e:
         logg.exception("Error %s", e)
