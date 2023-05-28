@@ -74,29 +74,32 @@ class MyTasmotaConsumers():
         return self.get_req(self.devices.get(device), "Power%20Off")
 
 class MyS0Consumers():
-    def __init__(self, devices:dict):
+    def __init__(self, devices:dict, ip):
         self.devices = devices
+        self.ip = ip
         self.status_values = [ ["energy", "Wh"], ["power", "Wh"]]
 
+    def get_req(self, param):
+        return requests.get("http://" + self.ip + "/S0?pin=" + param).json()
+
     def get_consumption(self, device=None):
-        status = {}
+        c = []
         for k,v in self.devices.items():
-            d={}
             try:
                 if device and device != k:
                     continue
-                
-                r = requests.get("http://" + v["Host"] + "/S0?pin=" + v["Pins"][0]).json()
-
+                d = {}
+                r = self.get_req(v)
                 for i in self.status_values:
-                    d[i[0]]= r["StatusSNS"]["ENERGY"][i[0]],i[1]
+                    d[i[0]]= r[i[0]]
+                
+                d['created'] = calendar.timegm(time.gmtime())
+                d['name'] = k
+                c.append(d)
+                logg.info(d)
             except Exception as e:
                 logg.exception("Error %s", e)
-
-        status[k]=d    
-
-        return status
-
+        return c
 
 class MyProducers(SolarMax):
     def __init__(self, host, port, db_name, dry_run=False):
@@ -198,7 +201,8 @@ def main():
             last_tot = db.query_data(db._bucket, item['name'], 'Total', '-10d', True)
             if last_tot:
                 delta = abs(last_tot['value'] - item['Total'])
-                if delta > 100:
+                logg.info("[%s] delta %f", item['name'], delta);
+                if delta > 0.100:
                     logg.critical("jump detected %s %d Wh", item['name'], delta )
                     item['Total'] = last_tot['value']
                     c.set_energy_today(item['name'], 0)
@@ -209,9 +213,20 @@ def main():
     except Exception as e:
         logg.exception("Error %s", e)
         
-        
-    S0 = { "washer": {"Host" : "192.168.40.238", "Pins": ["13","14"]}, }
-    #TODO add ESP32 SO consumers
+    try:
+        S0 = {"washer": "13", 
+              "freezer": "12"
+             }
+        c = MyS0Consumers(S0, "192.168.40.238")
+
+        db = MyDB('token_foo', '', 's0')
+
+        for item in c.get_consumption():
+            db.write_data(item, keys=['energy','power'])
+
+    except Exception as e:
+        logg.exception("Error %s", e)
+
 
 if __name__ == "__main__":
     main()
